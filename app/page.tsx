@@ -81,6 +81,7 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
+import { useBrand } from '@/lib/brand/brand-context';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
 import {
   isProWorkbenchEnabled,
@@ -127,6 +128,7 @@ const initialFormState: FormState = {
 };
 
 function HomePage() {
+  const brand = useBrand();
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
@@ -832,9 +834,7 @@ function HomePage() {
       >
         {/* ── Logo ── */}
         <div className="relative" data-pro-morph="lockup">
-          <motion.img
-            src="/logo-horizontal.png"
-            alt="OpenMAIC"
+          <motion.div
             initial={heroEnter({ opacity: 0, scale: 0.9 })}
             animate={{ opacity: 1, scale: 1 }}
             transition={{
@@ -843,8 +843,13 @@ function HomePage() {
               stiffness: 200,
               damping: 20,
             }}
-            className="h-12 md:h-16 mb-2 -ml-2 md:-ml-3"
-          />
+            className="mb-2 flex h-12 items-center gap-3 md:h-16"
+          >
+            <img src={brand.markSrc} alt="" className="h-full w-auto" />
+            <span className="text-3xl font-semibold tracking-tight md:text-5xl">
+              {brand.productName}
+            </span>
+          </motion.div>
           {workbenchEntryEnabled ? (
             <div
               className="absolute left-full top-0 ml-1.5 mt-[10px] md:ml-2 md:mt-[14px]"
@@ -1346,7 +1351,7 @@ function HomePage() {
 
       {/* Footer — flows with content, at the very end */}
       <div className="mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">
-        OpenMAIC Open Source Project
+        智学课堂 · 基于 OpenMAIC 开源项目的非官方桌面发行版
       </div>
     </div>
   );

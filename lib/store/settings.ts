@@ -910,8 +910,10 @@ export const useSettingsStore = create<SettingsState>()(
         // Initial state is plain defaults. This store does not migrate any
         // pre-cutover localStorage data — everything persisted arrives through
         // the KVStore on rehydration; an upgrading user reconfigures once.
-        providerId: 'openai' as ProviderId,
-        modelId: '',
+        // The desktop edition provisions DeepSeek as a managed provider during
+        // first-run setup, so a fresh user can generate immediately.
+        providerId: 'deepseek' as ProviderId,
+        modelId: 'deepseek-v4-flash',
         thinkingConfigs: {},
         providersConfig: getDefaultProvidersConfig(),
         ttsModel: 'openai-tts',
