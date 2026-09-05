@@ -32,6 +32,10 @@ CLAUDE.local.md
 # production
 /build
 /dist
+/desktop/dist/
+/desktop/runtime/
+/desktop/node_modules/
+/desktop/server-smoke-*.log
 
 # generated: synced from packages/@openmaic/importer/dist for runtime URL import
 /public/vendor/maic-importer

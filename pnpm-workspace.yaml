@@ -1,4 +1,5 @@
 packages:
+  - "desktop"
   - "packages/*"
   - "packages/@openmaic/*"
   - "!packages/docs" # standalone docs sub-app: own lockfile, build, deploy
