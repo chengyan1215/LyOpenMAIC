@@ -21,6 +21,7 @@ import { useI18n } from '@/lib/hooks/use-i18n';
 import { useNearViewport } from '@/lib/hooks/use-near-viewport';
 import type { SceneType, SlideContent, InteractiveContent } from '@/lib/types/stage';
 import { PENDING_SCENE_ID } from '@/lib/store/stage';
+import { useBrand } from '@/lib/brand/brand-context';
 
 interface SceneSidebarProps {
   readonly collapsed: boolean;
@@ -41,6 +42,7 @@ export function SceneSidebar({
   onRetryOutline,
   isCourseComplete,
 }: SceneSidebarProps) {
+  const brand = useBrand();
   const { t } = useI18n();
   const router = useRouter();
   const { scenes, currentSceneId, setCurrentSceneId, generatingOutlines, generationStatus } =
@@ -131,7 +133,10 @@ export function SceneSidebar({
             className="flex items-center gap-2 cursor-pointer rounded-lg px-1.5 -mx-1.5 py-1 -my-1 hover:bg-gray-100/80 dark:hover:bg-gray-800/60 active:scale-[0.97] transition-all duration-150"
             title={t('generation.backToHome')}
           >
-            <img src="/logo-horizontal.png" alt="OpenMAIC" className="h-6" />
+            <div className="flex items-center gap-2">
+              <img src={brand.markSrc} alt="" className="h-6 w-6" />
+              <span className="font-semibold">{brand.shortName}</span>
+            </div>
           </button>
           <button
             onClick={() => onCollapseChange(true)}

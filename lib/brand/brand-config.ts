@@ -23,12 +23,12 @@ export interface BrandConfig {
   themeColor: string;
 }
 
-/** The default brand: the product itself, with no vendor overrides. */
+/** The LyOpenMAIC desktop distribution brand. */
 export const DEFAULT_BRAND: BrandConfig = {
-  productName: 'OpenMAIC',
-  shortName: 'OpenMAIC',
-  logoSrc: '/logo-horizontal.png',
-  logoHasWordmark: true,
+  productName: '智学课堂',
+  shortName: '智学课堂',
+  logoSrc: '/openmaic-mark.png',
+  logoHasWordmark: false,
   markSrc: '/openmaic-mark.png',
   themeColor: '#722ed1',
 };
