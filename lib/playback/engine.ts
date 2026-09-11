@@ -47,7 +47,11 @@ import {
 } from '@/lib/playback/action-navigation';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
-import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
+import {
+  BROWSER_NATIVE_TTS_PROVIDER_ID,
+  isTTSProviderEnabled,
+} from '@/lib/audio/provider-enablement';
+import { resolveTTSModelForVoice } from '@/lib/audio/constants';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('PlaybackEngine');
@@ -94,6 +98,11 @@ export class PlaybackEngine {
   private browserTTSPausedChunks: string[] = []; // remaining chunks saved on pause (for cancel+re-speak)
   private speechTimerRemaining: number = 0; // remaining ms (set on pause)
   private playbackGeneration: number = 0;
+  // In-flight on-demand TTS fetch of the realtime fallback; aborted on
+  // pause/stop so a superseded synthesis never starts playing (or falls back).
+  private realtimeTTSAbort: AbortController | null = null;
+  /** Voice-inventory diagnostics are logged once per session, not per chunk. */
+  private diagnosticsLogged = false;
 
   constructor(
     scenes: Scene[],
@@ -222,6 +231,11 @@ export class PlaybackEngine {
   pause(): void {
     if (this.mode === 'playing') {
       this.invalidatePlaybackGeneration();
+      // Kill any in-flight realtime TTS synthesis — its result would be
+      // discarded anyway (generation invalidated), and the fallback chain is
+      // guarded by isCurrentGeneration so it cannot fire afterwards either.
+      this.realtimeTTSAbort?.abort();
+      this.realtimeTTSAbort = null;
       // Cancel pending timers
       if (this.triggerDelayTimer) {
         clearTimeout(this.triggerDelayTimer);
@@ -316,6 +330,8 @@ export class PlaybackEngine {
   /** → idle */
   stop(): void {
     this.invalidatePlaybackGeneration();
+    this.realtimeTTSAbort?.abort();
+    this.realtimeTTSAbort = null;
     // Set mode BEFORE stopping audio to prevent spurious processNext from
     // synchronous onend callbacks (see handleUserInterrupt for details).
     this.setMode('idle');
@@ -627,24 +643,10 @@ export class PlaybackEngine {
           .then((audioStarted) => {
             if (!this.isCurrentGeneration(generation)) return;
             if (!audioStarted) {
-              // No pre-generated audio — try browser-native TTS only when it is
-              // the selected provider AND actually enabled (opt-in, #665).
-              const settings = useSettingsStore.getState();
-              if (
-                hasText &&
-                settings.ttsEnabled &&
-                settings.ttsProviderId === 'browser-native-tts' &&
-                isTTSProviderEnabled(
-                  'browser-native-tts',
-                  settings.ttsProvidersConfig?.['browser-native-tts'],
-                ) &&
-                typeof window !== 'undefined' &&
-                window.speechSynthesis
-              ) {
-                this.playBrowserTTS(speechAction, generation);
-              } else {
-                scheduleReadingTimer();
-              }
+              // No pre-generated audio — realtime fallback chain:
+              // configured TTS provider (better voices) → browser-native →
+              // silent reading timer.
+              this.playSpeechFallback(speechAction, generation, hasText, scheduleReadingTimer);
             }
           })
           .catch((err) => {
@@ -772,6 +774,127 @@ export class PlaybackEngine {
    * Splits text into sentence-level chunks to avoid Chrome's ~15s cutoff.
    * Uses cancel+re-speak for pause/resume (Firefox compatibility).
    */
+  /**
+   * Fallback chain when a speech action has no pre-generated audio (the course
+   * was generated with TTS unavailable, or synthesis failed server-side):
+   *
+   *   1. The user's selected real TTS provider, synthesized on demand via
+   *      /api/generate/tts — same payload the pre-generation path sends, so
+   *      the configured voice (Doubao, MiniMax, Azure, …) is honored.
+   *   2. Browser-native TTS (free OS voices) — the zero-config fallback.
+   *   3. The silent reading timer.
+   */
+  private playSpeechFallback(
+    speechAction: SpeechAction,
+    generation: number,
+    hasText: boolean,
+    scheduleReadingTimer: () => void,
+  ): void {
+    const settings = useSettingsStore.getState();
+    if (!hasText || !settings.ttsEnabled) {
+      scheduleReadingTimer();
+      return;
+    }
+    const providerId = settings.ttsProviderId;
+    if (
+      providerId &&
+      providerId !== BROWSER_NATIVE_TTS_PROVIDER_ID &&
+      isTTSProviderEnabled(providerId, settings.ttsProvidersConfig?.[providerId])
+    ) {
+      log.info(`Speech fallback: realtime TTS via "${providerId}" (voice: ${settings.ttsVoice})`);
+      void this.playRealtimeProviderTTS(speechAction, generation, scheduleReadingTimer);
+      return;
+    }
+    log.info('Speech fallback: browser-native TTS (no pre-generated audio)');
+    this.playBrowserNativeFallback(speechAction, generation, scheduleReadingTimer);
+  }
+
+  /** Step 2 of the chain: browser-native TTS if usable, else the reading timer. */
+  private playBrowserNativeFallback(
+    speechAction: SpeechAction,
+    generation: number,
+    scheduleReadingTimer: () => void,
+  ): void {
+    // Gated by the GLOBAL narration switch only. The per-provider
+    // `browser-native-tts` enabled flag governs voice-picker visibility
+    // (#665), not playback audibility — double-gating here left users with
+    // narration ON but a legacy persisted `enabled: false` in permanent
+    // silence, which defeats the zero-config fallback.
+    if (
+      typeof window !== 'undefined' &&
+      window.speechSynthesis &&
+      typeof SpeechSynthesisUtterance !== 'undefined'
+    ) {
+      this.playBrowserTTS(speechAction, generation);
+    } else {
+      scheduleReadingTimer();
+    }
+  }
+
+  /**
+   * Step 1: synthesize the line on demand through the selected provider and
+   * play it via AudioPlayer.playBlob (full pause/resume/stop support). On any
+   * failure, degrade to the browser-native fallback rather than silence.
+   */
+  private async playRealtimeProviderTTS(
+    speechAction: SpeechAction,
+    generation: number,
+    scheduleReadingTimer: () => void,
+  ): Promise<void> {
+    const settings = useSettingsStore.getState();
+    const providerId = settings.ttsProviderId;
+    const providerConfig = settings.ttsProvidersConfig?.[providerId];
+    const controller = new AbortController();
+    this.realtimeTTSAbort = controller;
+    try {
+      const response = await fetch('/api/generate/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: speechAction.text,
+          // Route requires a non-empty id; a realtime line may have none.
+          audioId: speechAction.audioId || `realtime-${Date.now()}`,
+          ttsProviderId: providerId,
+          ttsModelId: resolveTTSModelForVoice(
+            providerId,
+            settings.ttsVoice,
+            providerConfig?.modelId,
+          ),
+          ttsVoice: settings.ttsVoice,
+          ttsSpeed: settings.ttsSpeed,
+          ttsApiKey: providerConfig?.apiKey || undefined,
+          // Managed providers resolve their base URL server-side; only send
+          // the client's own base URL (custom providers).
+          ttsBaseUrl: providerConfig?.baseUrl || providerConfig?.customDefaultBaseUrl || undefined,
+        }),
+        signal: controller.signal,
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.base64) {
+        throw new Error(
+          typeof data?.error === 'string' ? data.error : `Realtime TTS failed: ${response.status}`,
+        );
+      }
+      if (!this.isCurrentGeneration(generation)) return;
+      const audioBlob = await (
+        await fetch(`data:audio/${data.format || 'mp3'};base64,${data.base64}`)
+      ).blob();
+      if (!this.isCurrentGeneration(generation)) return;
+      const started = await this.audioPlayer.playBlob(audioBlob);
+      if (this.isCurrentGeneration(generation) && !started) {
+        this.playBrowserNativeFallback(speechAction, generation, scheduleReadingTimer);
+      }
+    } catch (err) {
+      // Aborted by pause/stop — the fallback chain must not fire.
+      if (controller.signal.aborted) return;
+      if (!this.isCurrentGeneration(generation)) return;
+      log.warn('Realtime TTS synthesis failed, falling back to browser-native:', err);
+      this.playBrowserNativeFallback(speechAction, generation, scheduleReadingTimer);
+    } finally {
+      if (this.realtimeTTSAbort === controller) this.realtimeTTSAbort = null;
+    }
+  }
+
   private playBrowserTTS(speechAction: SpeechAction, generation: number): void {
     if (!this.isCurrentGeneration(generation)) return;
     this.browserTTSChunks = this.splitIntoChunks(speechAction.text);
@@ -816,14 +939,51 @@ export class PlaybackEngine {
         voiceFound = true;
       }
     }
+    let cjkRatio = 0;
     if (!voiceFound) {
       // No usable voice configured — detect text language so the browser
       // auto-selects an appropriate voice.
-      const cjkRatio =
+      cjkRatio =
         chunkText.length > 0
           ? (chunkText.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length / chunkText.length
           : 0;
       utterance.lang = cjkRatio > CJK_LANG_THRESHOLD ? 'zh-CN' : 'en-US';
+    }
+
+    // Field diagnostics: a Windows machine without a matching TTS voice still
+    // fires start/end events but produces NO audible output — the classic
+    // "works here, silent on the customer's machine" report. Log the voice
+    // inventory once per session into the desktop log file so a customer's
+    // machine can be diagnosed from that single file.
+    if (!this.diagnosticsLogged) {
+      this.diagnosticsLogged = true;
+      const inventory =
+        voices.map((v) => `${v.name}[${v.lang}]`).join(', ') || '(no voices installed)';
+      const message = `[TTS] browser-native: voices=${voices.length} [${inventory}]; selected=${
+        utterance.voice?.name || utterance.lang
+      }; textLang=${cjkRatio > CJK_LANG_THRESHOLD ? 'zh' : 'non-zh'}`;
+      console.info(message);
+      const bridge = (
+        window as unknown as { zhixueDesktop?: { appendLog?: (m: string) => void } }
+      ).zhixueDesktop;
+      try {
+        bridge?.appendLog?.(message);
+      } catch {
+        // Bridge unavailable in pure-web mode — console already has the line.
+      }
+      const hasZhVoice = voices.some((v) => v.lang?.toLowerCase().startsWith('zh'));
+      const isCjkText = cjkRatio > CJK_LANG_THRESHOLD;
+      if (isCjkText && !hasZhVoice) {
+        const warning =
+          '[TTS] 本机未安装中文语音包，朗读将无声。请在 Windows 设置 > 时间和语言 > 语音 > 管理语音 中添加"中文(中国)"语音';
+        console.warn(warning);
+        try {
+          bridge?.appendLog?.(warning);
+        } catch {
+          // Same as above.
+        }
+        window.dispatchEvent(new CustomEvent('maic:tts-no-zh-voice'));
+      }
     }
 
     utterance.onend = () => {

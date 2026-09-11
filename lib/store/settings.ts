@@ -45,7 +45,7 @@ import { isTTSProviderEnabled } from '@/lib/audio/provider-enablement';
 const log = createLogger('Settings');
 
 /** Persisted-blob version for zustand's `persist` `migrate` ladder. */
-const SETTINGS_PERSIST_VERSION = 4;
+const SETTINGS_PERSIST_VERSION = 5;
 
 /**
  * Bound after the store exists; see `onWriteRefused` for why it is not inlined.
@@ -953,10 +953,13 @@ export const useSettingsStore = create<SettingsState>()(
         videoGenerationEnabled: false,
         reviewOutlineEnabled: false,
 
-        // TTS is OFF by default; auto-enabled on first server-sync when a TTS
-        // provider is configured (mirrors image/video). Fresh installs with no
-        // provider stay off and show an "enable browser-native" CTA (#665).
-        ttsEnabled: false,
+        // Narration defaults ON: course playback audibly speaks even with zero
+        // configuration — the playback engine falls back to browser-native TTS
+        // (free OS voices) when no pre-generated audio exists, and to a
+        // user-configured TTS provider (better voices) when one is set up.
+        // Users who prefer silent playback toggle this off. A configured TTS
+        // provider additionally enables pre-generated audio at generation time.
+        ttsEnabled: true,
         asrEnabled: true,
 
         // Off until the server reports a concurrency via fetchServerProviders.
@@ -2201,6 +2204,17 @@ export const useSettingsStore = create<SettingsState>()(
             const cfg = state.ttsProvidersConfig[pid];
             if (cfg) cfg.enabled = pid !== 'browser-native-tts';
           }
+        }
+
+        // v4 → v5: narration becomes zero-config ON (the packaged desktop app's
+        // courses had no pre-generated audio, so a legacy persisted
+        // `ttsEnabled: false` meant permanent silence with no remedy short of
+        // digging through settings). That `false` was the shipped default, not
+        // a deliberate user choice — force narration ON once on upgrade. A
+        // user who prefers silence can toggle it off and the choice now sticks
+        // (this migration runs only for blobs persisted below v5).
+        if (version < 5) {
+          state.ttsEnabled = true;
         }
 
         ensureValidProviderSelections(state);

@@ -184,6 +184,51 @@ export class AudioPlayer {
   }
 
   /**
+   * Play a raw audio Blob directly — used by the playback engine's realtime
+   * TTS fallback, where narration is synthesized on demand at playback time
+   * instead of being resolved from a pre-generated pool entry. Full
+   * pause/resume/stop/speed support via the same element plumbing as play().
+   *
+   * @returns true if playback started, false if the blob was empty or the
+   * play was superseded before it could start.
+   */
+  public async playBlob(blob: Blob): Promise<boolean> {
+    const requestToken = ++this.requestToken;
+    if (blob.size === 0) return false;
+
+    this.stopAudioElement();
+    if (requestToken !== this.requestToken) return false;
+
+    this.audio = new Audio();
+    const blobUrl = URL.createObjectURL(blob);
+    this.blobUrl = blobUrl;
+    this.audio.src = blobUrl;
+    if (this.muted) this.audio.volume = 0;
+    else this.audio.volume = this.volume;
+
+    this.audio.defaultPlaybackRate = this.playbackRate;
+    this.audio.playbackRate = this.playbackRate;
+
+    this.audio.addEventListener('ended', () => {
+      this.releaseBlobUrl(blobUrl);
+      this.onEndedCallback?.();
+    });
+
+    try {
+      await this.audio.play();
+    } catch (playError) {
+      this.releaseBlobUrl(blobUrl);
+      throw playError;
+    }
+    if (requestToken !== this.requestToken) {
+      this.releaseBlobUrl(blobUrl);
+      return false;
+    }
+    this.audio.playbackRate = this.playbackRate;
+    return true;
+  }
+
+  /**
    * Pause playback
    */
   public pause(): void {

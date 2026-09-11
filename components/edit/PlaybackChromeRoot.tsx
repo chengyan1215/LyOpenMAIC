@@ -41,6 +41,7 @@ import { useWidgetIframeStore } from '@/lib/store/widget-iframe';
 import type { AudioIndicatorState } from '@/components/roundtable/audio-indicator';
 import type { Action, DiscussionAction, SpeechAction } from '@/lib/types/action';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { ChatArea, type ChatAreaRef } from '@/components/chat/chat-area';
 import type { SessionCleanupPayload } from '@/components/chat/use-chat-sessions';
 import { agentsToParticipants, useAgentRegistry } from '@/lib/orchestration/registry/store';
@@ -389,6 +390,21 @@ export const PlaybackChromeRoot = forwardRef<PlaybackChromeRootHandle, PlaybackC
     const autoStartRef = useRef(false);
     // Discussion buffer-level pause state (distinct from soft-pause which aborts SSE)
     const [isDiscussionPaused, setIsDiscussionPaused] = useState(false);
+
+    // PlaybackEngine dispatches this when browser-native TTS finds no Chinese
+    // voice on the machine (start/end still fire — output is simply silent).
+    // Surface it visibly: the customer cannot tell "silent" from "broken".
+    useEffect(() => {
+      const onNoZhVoice = () => {
+        toast.warning('未检测到中文语音包，朗读将无声', {
+          description:
+            '请在 Windows 设置 > 时间和语言 > 语音 > 管理语音 中添加"中文(中国)"语音包，或在课堂设置中配置云端 TTS 服务商。',
+          duration: 12000,
+        });
+      };
+      window.addEventListener('maic:tts-no-zh-voice', onNoZhVoice);
+      return () => window.removeEventListener('maic:tts-no-zh-voice', onNoZhVoice);
+    }, []);
 
     /**
      * Resume a soft-paused topic: re-call /chat with existing session messages.
