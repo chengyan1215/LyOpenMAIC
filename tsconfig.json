@@ -33,6 +33,7 @@
   "exclude": [
     "node_modules",
     "dist",
+    "desktop",
     "packages/*/src",
     "packages/docs",
     "openclaw",

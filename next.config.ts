@@ -23,6 +23,25 @@ const nextConfig: NextConfig = {
       'node_modules/.pnpm/@img+sharp-libvips-*/node_modules/@img/sharp-libvips-*/lib/**',
     ],
   },
+  // The document extractors' cwd-based fs operations make NFT trace the whole
+  // repository into .next/standalone (Next warns "whole project was traced").
+  // Prune everything the server cannot need at runtime — branding assets,
+  // desktop shell, tests, docs, e2e. Keep: app sources, skills (above),
+  // packages (workspace deps are symlinked from node_modules into the repo),
+  // data/ (extractor scratch state).
+  outputFileTracingExcludes: {
+    '*': [
+      './assets/**',
+      './desktop/**',
+      './e2e/**',
+      './tests/**',
+      './eval/**',
+      './packages/**/test/**',
+      './packages/docs/**',
+      './marketing/**',
+      './community/**',
+    ],
+  },
   typescript: {
     tsconfigPath: process.env.NODE_ENV === 'production' ? 'tsconfig.build.json' : 'tsconfig.json',
   },

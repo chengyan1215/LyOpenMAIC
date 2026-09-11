@@ -8,7 +8,9 @@ const ALLOWED_SCENES = new Set(['self-study', 'family', 'teaching', 'career', 'o
 const ALLOWED_LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
 
 function normalizeBaseUrl(value) {
-  const raw = String(value || DEFAULT_BASE_URL).trim().replace(/\/+$/, '');
+  const raw = String(value || DEFAULT_BASE_URL)
+    .trim()
+    .replace(/\/+$/, '');
   let parsed;
   try {
     parsed = new URL(raw);
@@ -62,12 +64,18 @@ function redactSecrets(text, secrets = []) {
 }
 
 function createServerEnvironment(config) {
+  // A fresh installation can browse the classroom before connecting an AI service.
+  const desktopDefaults = {
+    NEXT_PUBLIC_MAIC_EDITOR_ENABLED: '1',
+    NEXT_TELEMETRY_DISABLED: '1',
+  };
+  if (!config) return desktopDefaults;
   return {
+    ...desktopDefaults,
     DEEPSEEK_API_KEY: config.apiKey,
     DEEPSEEK_BASE_URL: config.baseUrl,
     DEEPSEEK_MODELS: config.model,
     DEFAULT_MODEL: `deepseek:${config.model}`,
-    NEXT_TELEMETRY_DISABLED: '1',
   };
 }
 

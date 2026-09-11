@@ -17,7 +17,7 @@
     "start": "next start",
     "desktop:dev": "pnpm --dir desktop start",
     "desktop:check": "pnpm --dir desktop check && pnpm --dir desktop test",
-    "desktop:prepare": "pnpm build && pnpm --dir desktop prepare-runtime",
+    "desktop:prepare": "node desktop/scripts/build-web-runtime.mjs && pnpm --dir desktop prepare-runtime",
     "desktop:dist": "pnpm desktop:prepare && pnpm --dir desktop dist",
     "lint": "eslint",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",

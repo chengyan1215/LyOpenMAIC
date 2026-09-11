@@ -41,6 +41,17 @@ fs.rmSync(targetDirectory, { recursive: true, force: true });
 fs.mkdirSync(path.dirname(targetDirectory), { recursive: true });
 fs.cpSync(sourceDirectory, targetDirectory, { recursive: true, dereference: true });
 
+// Next's standalone output mirrors the repository root, which drags in
+// desktop/dist (previous NSIS installers, hundreds of MB each). The packaged
+// app never executes the server from this copy of desktop/, so prune it
+// before electron-builder packs the runtime into the installer.
+fs.rmSync(path.join(targetDirectory, 'desktop', 'dist'), { recursive: true, force: true });
+
+// Turbopack's broad output tracing can also copy Playwright screenshots and
+// isolated Electron user profiles. They are test artifacts, never runtime
+// inputs, and can add hundreds of megabytes to the installer.
+fs.rmSync(path.join(targetDirectory, 'e2e'), { recursive: true, force: true });
+
 // With pnpm, Next's direct helpers can be present in the virtual store but
 // have no hoisted aliases in standalone/node_modules. Electron then cannot
 // resolve them at customer runtime. Materialize Next's complete direct set.

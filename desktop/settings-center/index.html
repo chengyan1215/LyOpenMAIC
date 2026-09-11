@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://127.0.0.1:* data:; img-src 'self' http://127.0.0.1:* data:; style-src 'self'; script-src 'self'" />
+    <title>设置中心 - 智学课堂</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="settings-shell">
+      <aside class="sidebar">
+        <div class="sidebar-heading">
+          <span class="eyebrow">SETTINGS</span>
+          <h1>设置中心</h1>
+          <p>管理学习偏好和桌面运行选项</p>
+        </div>
+        <nav aria-label="设置分类">
+          <button class="nav-item active" data-section="general" type="button">
+            <span class="nav-icon">通</span><span>通用</span>
+          </button>
+          <button class="nav-item" data-section="profile" type="button">
+            <span class="nav-icon">我</span><span>学习档案</span>
+          </button>
+          <button class="nav-item" data-section="ai" type="button">
+            <span class="nav-icon">AI</span><span>AI 服务</span>
+          </button>
+          <button class="nav-item" data-section="classroom" type="button">
+            <span class="nav-icon">课</span><span>课堂与能力</span>
+          </button>
+          <button class="nav-item" data-section="runtime" type="button">
+            <span class="nav-icon">存</span><span>存储与运行</span>
+          </button>
+          <button class="nav-item" data-section="about" type="button">
+            <span class="nav-icon">i</span><span>关于</span>
+          </button>
+        </nav>
+        <div class="sidebar-note">
+          <span class="status-dot"></span>
+          <span>设置保存在本机</span>
+        </div>
+      </aside>
+
+      <div class="content">
+        <section class="panel active" data-panel="general">
+          <header class="panel-header">
+            <div><span class="kicker">基础偏好</span><h2>通用</h2></div>
+            <button class="primary" type="button" data-save="general">保存</button>
+          </header>
+          <div class="section-copy">调整界面外观和首页展示方式。</div>
+
+          <div class="setting-card">
+            <div class="setting-row stacked">
+              <div><h3>外观</h3><p>跟随系统会自动适配 Windows 的明暗模式。</p></div>
+              <div class="segmented" role="radiogroup" aria-label="外观">
+                <label><input type="radio" name="theme" value="light" /><span>浅色</span></label>
+                <label><input type="radio" name="theme" value="dark" /><span>深色</span></label>
+                <label><input type="radio" name="theme" value="system" /><span>跟随系统</span></label>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <label class="setting-row" for="locale">
+              <div><h3>界面语言</h3><p>语言切换会在课堂页刷新后完整生效。</p></div>
+              <select id="locale">
+                <option value="zh-CN">简体中文</option>
+                <option value="zh-TW">繁體中文</option>
+                <option value="en-US">English</option>
+                <option value="ja-JP">日本語</option>
+                <option value="ko-KR">한국어</option>
+              </select>
+            </label>
+            <div class="divider"></div>
+            <label class="setting-row">
+              <div><h3>展开最近课堂</h3><p>启动后在首页显示最近使用的课堂。</p></div>
+              <span class="switch"><input id="recent-classrooms" type="checkbox" /><span></span></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="profile">
+          <header class="panel-header">
+            <div><span class="kicker">个性化学习</span><h2>学习档案</h2></div>
+            <button class="primary" type="button" data-save="profile">保存</button>
+          </header>
+          <div class="section-copy">这部分就是首页的个人介绍卡。AI 老师会参考它调整讲解方式。</div>
+
+          <div class="profile-card setting-card">
+            <div class="profile-head">
+              <img id="profile-avatar" alt="当前头像" />
+              <div><strong id="profile-preview-name">同学</strong><span>学习者档案</span></div>
+            </div>
+            <label for="nickname">如何称呼你</label>
+            <input id="nickname" maxlength="40" placeholder="例如：小林同学" />
+            <label for="bio">自我介绍</label>
+            <textarea id="bio" maxlength="500" rows="4" placeholder="介绍你的背景、目标和喜欢的学习方式…"></textarea>
+            <div class="field-label">选择头像</div>
+            <div id="avatar-options" class="avatar-options" role="radiogroup" aria-label="选择头像"></div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="ai">
+          <header class="panel-header">
+            <div><span class="kicker">模型与连接</span><h2>AI 服务</h2></div>
+          </header>
+          <div class="section-copy">桌面连接使用 Windows 安全存储保存密钥，并为本地课堂提供默认模型。</div>
+
+          <div class="connection-summary setting-card">
+            <div class="summary-mark">AI</div>
+            <div class="summary-copy"><span id="ai-status-label">正在读取状态…</span><strong id="ai-provider-name">—</strong><small id="ai-model-name">—</small></div>
+            <span id="ai-status-badge" class="badge neutral">未配置</span>
+          </div>
+
+          <div class="setting-card form-card">
+            <div class="card-title"><div><h3>桌面版 DeepSeek 连接</h3><p>留空 API Key 会继续使用当前已加密保存的密钥。</p></div></div>
+            <div class="form-grid">
+              <label class="full" for="api-key">API Key<input id="api-key" type="password" autocomplete="off" placeholder="sk-…" /></label>
+              <label class="full" for="base-url">API 地址<input id="base-url" type="url" value="https://api.deepseek.com" /></label>
+              <label for="model">默认模型<select id="model"><option value="deepseek-v4-flash">DeepSeek V4 Flash</option><option value="deepseek-v4-pro">DeepSeek V4 Pro</option></select></label>
+              <div class="connection-actions">
+                <button class="secondary" id="test-connection" type="button">测试连接</button>
+                <button class="primary" id="save-connection" type="button">保存连接</button>
+              </div>
+            </div>
+            <div id="connection-result" class="inline-status" aria-live="polite"></div>
+          </div>
+
+          <button id="open-advanced" class="wide-link" type="button">
+            <span><strong>完整模型与扩展设置</strong><small>管理其他服务商、模型、语音、图片、视频与搜索</small></span><b>打开原有设置 ›</b>
+          </button>
+        </section>
+
+        <section class="panel" data-panel="classroom">
+          <header class="panel-header">
+            <div><span class="kicker">课堂体验</span><h2>课堂与能力</h2></div>
+            <button class="primary" type="button" data-save="classroom">保存</button>
+          </header>
+          <div class="section-copy">选择课堂默认启用的交互方式和生成能力。</div>
+          <div class="setting-card">
+            <div class="setting-row"><div><h3>课程编辑（Pro）</h3><p>桌面版默认开启，进入已有课堂后可在顶部切换编辑模式。</p></div><span class="badge ok">已开启</span></div>
+            <div class="divider"></div>
+            <label class="setting-row"><div><h3>语音讲解</h3><p>允许 AI 老师朗读课堂内容。</p></div><span class="switch"><input id="tts-enabled" type="checkbox" /><span></span></span></label>
+            <div class="divider"></div>
+            <label class="setting-row"><div><h3>语音输入</h3><p>允许在课堂中使用麦克风提问。</p></div><span class="switch"><input id="asr-enabled" type="checkbox" /><span></span></span></label>
+            <div class="divider"></div>
+            <label class="setting-row"><div><h3>进入课堂后自动播放</h3><p>自动开始教师讲解。</p></div><span class="switch"><input id="autoplay-enabled" type="checkbox" /><span></span></span></label>
+            <div class="divider"></div>
+            <label class="setting-row" for="playback-speed"><div><h3>默认播放速度</h3><p>可在课堂播放控制中临时调整。</p></div><select id="playback-speed"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+          </div>
+          <h3 class="subheading">生成能力</h3>
+          <div class="capability-grid">
+            <label class="capability-card"><span class="capability-icon">图</span><span><strong>图片生成</strong><small>为课堂补充示意图</small></span><span class="switch"><input id="image-enabled" type="checkbox" /><span></span></span></label>
+            <label class="capability-card"><span class="capability-icon">影</span><span><strong>视频生成</strong><small>生成动态讲解素材</small></span><span class="switch"><input id="video-enabled" type="checkbox" /><span></span></span></label>
+            <label class="capability-card"><span class="capability-icon">审</span><span><strong>大纲确认</strong><small>生成前先检查结构</small></span><span class="switch"><input id="review-enabled" type="checkbox" /><span></span></span></label>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="runtime">
+          <header class="panel-header"><div><span class="kicker">本机维护</span><h2>存储与运行</h2></div></header>
+          <div class="section-copy">查看本地数据位置和桌面运行状态。</div>
+          <div class="setting-card">
+            <div class="setting-row"><div><h3>数据目录</h3><p id="data-directory" class="path">—</p></div><button id="open-data" class="secondary" type="button">打开目录</button></div>
+            <div class="divider"></div>
+            <div class="setting-row"><div><h3>图形渲染</h3><p id="gpu-mode">—</p></div><button id="choose-render-mode" class="secondary" type="button">更改模式</button></div>
+            <div class="divider"></div>
+            <div class="setting-row"><div><h3>临时缓存</h3><p>清理网页缓存，不会删除课程和个人设置。</p></div><button id="clear-cache" class="secondary" type="button">清理缓存</button></div>
+            <div class="divider"></div>
+            <div class="setting-row"><div><h3>运行日志</h3><p>用于排查启动、连接和音频问题。</p></div><button id="open-logs" class="secondary" type="button">查看日志</button></div>
+          </div>
+          <div class="reload-card">
+            <div><strong>让全部设置立即生效</strong><span>刷新会重新载入当前课堂页，请先保存正在编辑的内容。</span></div>
+            <button id="reload-classroom" class="secondary" type="button">刷新课堂页</button>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="about">
+          <header class="panel-header"><div><span class="kicker">产品信息</span><h2>关于智学课堂</h2></div></header>
+          <div class="about-hero setting-card"><div class="about-logo">智</div><div><h3>智学课堂</h3><p>基于 OpenMAIC 的非官方 Windows 桌面发行版</p><span id="app-version">桌面版</span></div></div>
+          <div class="setting-card about-list">
+            <div><strong>设计目标</strong><span>把资料快速变成可提问、可讲解的互动课堂。</span></div>
+            <div><strong>配置原则</strong><span>桌面能力放在桌面层，尽量保持 OpenMAIC 核心源码不变。</span></div>
+            <div><strong>更新方式</strong><span>当前通过安装新版桌面安装包完成更新。</span></div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="settings.js"></script>
+  </body>
+</html>
